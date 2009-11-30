@@ -197,7 +197,7 @@ class Root(RPCRoot):
 
     id         = widgets.HiddenField(name='id')
     submit     = widgets.SubmitButton(name='submit')
-
+    enable_hints= widgets.CheckBox(label='Enable hints')
     email      = widgets.TextField(name='email_address', label='Email Address')
     autoUsers  = widgets.AutoCompleteField(name='user',
                                            search_controller=url("/users/by_name"),
@@ -206,7 +206,7 @@ class Root(RPCRoot):
     
     prefs_form   = widgets.TableForm(
         'UserPrefs',
-        fields = [email],
+        fields = [email,enable_hints],
         action = 'save_data',
         submit_text = _(u'Change'),
     )
