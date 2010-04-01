@@ -738,6 +738,7 @@ class Root(RPCRoot):
         return return_dict
  
     def systems(self, systems,custom_columns=None, *args, **kw):
+        search_bar = Utility.create_search_bar(custom_columns=custom_columns)
         if 'simplesearch' in kw:
             simplesearch = kw['simplesearch']
             kw['systemsearch'] = [{'table' : 'System/Name',   
@@ -809,9 +810,7 @@ class Root(RPCRoot):
                 my_fields.insert(index - 1, col)
                 
         display_grid = myPaginateDataGrid(fields=my_fields)
-        col_data = Utility.result_columns(columns)  
-
-        search_bar = Utility.create_search_bar(custom_columns=custom_columns)
+        col_data = Utility.result_columns(columns)   
              
         return dict(title="Systems", grid = display_grid,
                                      list = systems, 
