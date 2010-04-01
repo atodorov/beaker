@@ -3,8 +3,11 @@ import re
 import random
 import sqlalchemy
 from sqlalchemy import or_, and_, not_
-from sqlalchemy.sql import visitors
-from turbogears.database import session
+from sqlalchemy.orm import aliased
+from sqlalchemy.sql import visitors, func
+from sqlalchemy.sql.expression import select
+from turbogears.database import session, mapper
+from bkr.server.bexceptions import BeakerException
 
 import logging
 log = logging.getLogger(__name__)
@@ -148,17 +151,17 @@ class Modeller(object):
         return x == bool_y
 
     def not_equal(self,x,y): 
-        wildcard_y = re.sub('\*','%',y)
-        if wildcard_y != y: #looks like we found a wildcard
-            return not_(x.like(wildcard_y))
+        wildcard_clause = self.check_wildcard(x,y)
+        if wildcard_clause: #looks like we found a wildcard
+            return not_(wildcard_clause)
         if not y:
             return and_(x != None,x != y)
         return or_(x != y, x == None)
 
     def equals(self,x,y):    
-        wildcard_y = re.sub('\*','%',y)
-        if wildcard_y != y: #looks like we found a wildcard
-            return x.like(wildcard_y)
+        wildcard_clause = self.check_wildcard(x,y)
+        if wildcard_clause: #looks like we found a wildcard
+            return wildcard_clause
         if not y:
             return or_(x == None,x==y)
         return x == y
@@ -212,6 +215,14 @@ class Modeller(object):
         elif re.match(bool_pattern,type_lower):
             operators = self.structure['boolean']
         return operators
+
+    @classmethod
+    def check_wildcard(cls,x,y):
+        wildcard_y = re.sub('\*','%',y)
+        if wildcard_y != y: #looks like we found a wildcard
+            return x.like(wildcard_y)
+        return
+
         
 class Search:
     def append_results(self,value,column,operation,**kw): 
@@ -228,8 +239,9 @@ class Search:
             filter_func = pre['col_op_filter']
             filter_final = lambda: filter_func(mycolumn.column,value)
         else: 
-            filter_final = self.return_standard_filter(mycolumn,operation,value)
+            filter_final = self.return_standard_filter(mycolumn,operation,value) 
         self.queri = self.queri.filter(filter_final())   
+        
 
     def return_results(self): 
         return self.queri        
@@ -261,18 +273,14 @@ class Search:
         return lambda: filter_func(mycolumn.column,value)
 
     def pre_operations(self,column,operation,value,cls_ref=None,**kw):
-        #First let's see if we have a column X operation specific filter
-        #We will only need to use these filter by table column if the ones from Modeller are 
-        #inadequate. 
-        #If we are looking at the System class and column 'arch' with the 'is not' operation, it will try and get
-        # System.arch_is_not_filter
+        #Here we try and determine the cls ref from the current cls name.
+        #If current class name is 'TaskSearch', we try and see if 'Task' is valid class ref
         if cls_ref is None:          
             match_obj = re.search('^(.+)?Search$',self.__class__.__name__) 
             cls_ref = globals()[match_obj.group(1)]
             if cls_ref is None:
-                raise BeakerException('No cls_ref passed in and class naming convetion did give valid class')
-        results_dict = {}
-        underscored_operation = re.sub(' ','_',operation) 
+                raise BeakerException('No cls_ref passed in and class naming convetion did not give valid class') 
+        
         column_match = re.match('^(.+)?/(.+)?$',column)
         try:
             if column_match.group():
@@ -281,11 +289,19 @@ class Search:
                 column_mod = '%s%s' % (column_match.group(1).capitalize(),column_match.group(2).capitalize()) 
         except AttributeError, (error):
             column_mod = column.lower()
-         
+
+        #First let's see if we have a column X operation specific filter
+        #We will only need to use these filter by table column if the ones from Modeller are 
+        #inadequate. 
+        #If we are looking at the System class and column 'arch' with the 'is not' operation, it will try and get
+        # System.arch_is_not_filter
+
+        underscored_operation = re.sub(' ','_',operation)  
         col_op_filter = getattr(cls_ref,'%s_%s_filter' % (column_mod,underscored_operation),None)
+        results_dict = {}
         results_dict.update({'col_op_filter':col_op_filter})         
-        #At this point we can also call a custom function before we try to append our results
-        
+
+        #At this point we can also call a custom function before we try to append our results        
         col_op_pre = getattr(cls_ref,'%s_%s_pre' % (column_mod,underscored_operation),None)           
         if col_op_pre is not None:
             results_dict.update({'results_from_pre': col_op_pre(value,col=column,op = operation, **kw)})  
@@ -436,8 +452,8 @@ class SystemSearch(Search):
         
         modeller = Modeller()          
         if col_op_filter:
-            filter_func = col_op_filter   
-            filter_final = lambda: filter_func(mycolumn.column,value)
+            filter_func = col_op_filter 
+            filter_final = lambda: filter_func(mycolumn.column,value,queri=self.queri)
             #If you want to pass custom args to your custom filter, here is where you do it
             if kw.get('keyvalue'): 
                 filter_final = lambda: filter_func(mycolumn.column,value,key_name = kw['keyvalue'])   
@@ -453,6 +469,7 @@ class SystemSearch(Search):
             filter_final = lambda: filter_func(mycolumn.column,value)
 
         self.queri = self.queri.filter(filter_final())
+        log.debug(self.queri)      
 
 
     def __do_join(self,cls_ref,col_name=None,mycolumn=None,results_from_pre=None,id=None): 
@@ -479,16 +496,21 @@ class SystemSearch(Search):
                 #cls_ref.joins.add_join(col_string = str(column),join=mycolumn.join)
                 system_relations = mycolumn.relations
                 is_alias = mycolumn.has_alias
-                if type(system_relations) == type(''):
-                    if id is not None:
-                        self.queri = self.queri.outerjoin(system_relations,aliased=is_alias,id=id)    
-                    self.queri = self.queri.outerjoin(system_relations,aliased=is_alias)    
+                if type(system_relations) is str:
+                    join_name = '%s' % (system_relations)
+                    custom_join_func = getattr(cls_ref,'%s_join' % (join_name),None)
+                    if custom_join_func is not None:
+                        self.queri = custom_join_func(self.queri)
+                    else: 
+                        if id is not None:
+                            self.queri = self.queri.outerjoin(system_relations,aliased=is_alias,id=id)    
+                        self.queri = self.queri.outerjoin(system_relations,aliased=is_alias)    
                 else:    
                     for relations in system_relations:
                         if type(relations) == type([]):
                             if id is not None: 
-  				self.queri = self.queri.outerjoin(relations,aliased=is_alias,id=id)    
-                            self.queri = self.queri.outerjoin(relations,aliased=False)    
+  				                self.queri = self.queri.outerjoin(relations,aliased=is_alias,id=id)    
+                            self.queri = self.queri.outerjoin(relations,aliased=is_alias)    
                         else:
                             if id is not None: 
                                 self.queri = self.queri.outerjoin(system_relations,aliased=is_alias,id=id)
@@ -534,22 +556,22 @@ class SystemSearch(Search):
         #Clear the table if it's already been created
         if lookup_table != None:
            lookup_table = []       
-        for i in options:
-            for obj,v in i.iteritems():
-                display_name = cls.create_mapping(obj)
-                for rule,v1 in v.iteritems():  
-                    searchable = obj.get_searchable()
-                    if rule == 'all':
-                        for item in searchable: 
+       
+        for obj,v in options.iteritems():
+            display_name = cls.create_mapping(obj)
+            for rule,v1 in v.iteritems():  
+                searchable = obj.get_searchable()
+                if rule == 'all':
+                    for item in searchable: 
+                        lookup_table.append('%s/%s' % (display_name,item))  
+                if rule == 'exclude': 
+                    for item in searchable: 
+                        if v1.count(item) < 1:
                             lookup_table.append('%s/%s' % (display_name,item))  
-                    if rule == 'exclude': 
-                        for item in searchable: 
-                            if v1.count(item) < 1:
-                                lookup_table.append('%s/%s' % (display_name,item))  
-                    if rule == 'include':
-                        for item in searchable:
-                            if v1.count(item) > 1:
-                                 lookup_table.append('%s/%s' % (display_name,item))  
+                if rule == 'include':
+                    for item in searchable:
+                        if v1.count(item) > 1:
+                            lookup_table.append('%s/%s' % (display_name,item))  
 
         lookup_table.sort()
         return lookup_table
@@ -673,13 +695,24 @@ class SystemObject:
         """
         try:           
             searchable_columns = [k for (k,v) in cls.searchable_columns.iteritems()]
-            if 'exclude' in kw:
-                if type(kw['without']) == type(()):
-                    for i in kw['exclude']:
-                        try:
-                            del searchable_columns[i]
-                        except KeyError,e:
-                            log.error('Cannot remove column %s from searchable column in class %s as it is not a searchable column in the first place' % (i,cls.__name__))
+            if 'without' in kw:
+                if kw['without'] is not None:
+                    without_type = type(kw['without']) 
+                    if without_type is str:
+                        current_col = kw['without']
+                        searchable_columns.remove(current_col) 
+                    elif without_type is type(()): 
+                        for i in kw['without']: 
+                            current_col = i
+                            searchable_columns.remove(current_col) 
+                    else:
+                        log.error('Specified incorrect type when using \'without\' keyword')
+           
+            return searchable_columns
+        
+        except ValueError,e:
+            log.error('Cannot remove column %s from searchable column in class %s as it is not a searchable column in the first place.'\
+                      'Returning standard searchable_columns' % (current_col,cls.__name__)) 
             return searchable_columns
         except AttributeError,(e):
             log.debug('Unable to access searchable_columns of class %s' % cls.__name__)
@@ -712,13 +745,54 @@ class System(SystemObject):
                           'Status'    : MyColumn(column=model.SystemStatus.status, col_type='string', relations='status'),
                           'Arch'      : MyColumn(column=model.Arch.arch, col_type='string', relations='arch'),
                           'Type'      : MyColumn(column=model.SystemType.type, col_type='string', relations='type'),
-                          'PowerType' : MyColumn(column=model.PowerType.name, col_type='string', relations=['power','power_type'])
+                          'PowerType' : MyColumn(column=model.PowerType.name, col_type='string', relations=['power','power_type']),
+                          'ReservedVia' : MyColumn(column=model.SystemActivity.service, col_type='string',has_alias=True, relations='activity'),
                          }  
     search_values_dict = {'Status' : lambda: model.SystemStatus.get_all_status_name(),
                           'Type' : lambda: model.SystemType.get_all_type_names() }   
+
+
+    @classmethod
+    def reservedvia_contains_filter(cls,col,val,*args,**kw):
+        try:
+            ids = cls.get_reservedvia_ids(kw['queri']) 
+            return and_(model.SystemActivity.id.in_(ids),col.like('%%%s%%' % val ))
+        except Exception,e:
+            raise BeakerException('Error in %s is: %s' % (cls.reservedvia_is_filter.__name__,e))
+
+
+    @classmethod
+    def reservedvia_is_not_filter(cls,col,val,*args,**kw):
+        try:
+            ids = cls.get_reservedvia_ids(kw['queri'])
+            wildcard_clause = Modeller.check_wildcard(col,val)
+            if wildcard_clause: 
+              return and_(model.SystemActivity.id.in_(ids),not_(wildcard_clause))
+            else:
+                return and_(model.SystemActivity.id.in_(ids),col != val)
+        except Exception,e:
+            log.error(e)
     
     @classmethod
-    def arch_is_not_filter(cls,col,val):
+    def reservedvia_is_filter(cls,col,val,*args,**kw): 
+        ids = cls.get_reservedvia_ids(kw['queri'])
+        wildcard_clause = Modeller.check_wildcard(col,val)
+        if wildcard_clause:
+            return and_(model.SystemActivity.id.in_(ids),wildcard_clause)
+        else:
+            return and_(model.SystemActivity.id.in_(ids),col == val)
+
+    @classmethod
+    def get_reservedvia_ids(cls,queri):
+        act_alias = model.system_activity_table.alias()
+        f_obj= model.system_table.join(act_alias,act_alias.c.system_id == model.system_table.c.id).join(model.activity_table,model.activity_table.c.id == act_alias.c.id)
+        s = select([func.max(act_alias.c.id)],from_obj=f_obj,whereclause=model.activity_table.c.action == 'Reserved').group_by(model.system_table.c.id)
+        result = s.execute()
+        ids = [row[0] for row in result.fetchall()] 
+        return ids
+       
+    @classmethod
+    def arch_is_not_filter(cls,col,val,*args,**kw):
         """
         arch_is_not_filter is a function dynamically called from append_results.
         It serves to provide a table column operation specific method of filtering results of System/Arch
@@ -785,7 +859,7 @@ class Activity(SystemObject):
             query = model.SystemActivity.query().join(['object','arch']).filter(model.Arch.arch == val)          
         ids = [r.id for r in query]  
         return not_(model.activity_table.c.id.in_(ids)) 
-        
+
 
 class History(SystemObject): 
     search = HistorySearch
@@ -842,20 +916,20 @@ class Key(SystemObject):
         return cls.value_pre(value,**kw)
     
     @classmethod
-    def value_greater_than_filter(cls,col,val,key_name):
+    def value_greater_than_filter(cls,col,val,key_name,*args,**kw):
         result = model.Key.by_name(key_name) 
         int_table = result.numeric
         key_id = result.id
         return and_(model.Key_Value_Int.key_value > val, model.Key_Value_Int.key_id == key_id)
 
     @classmethod
-    def value_contains_filter(cls, col, val, key_name):
+    def value_contains_filter(cls, col, val, key_name,*args,**kw):
         result = model.Key.by_name(key_name) 
         key_id = result.id
         return and_(model.Key_Value_String.key_value.like('%%%s%%' % val),model.Key_Value_String.key_id == key_id) 
         
     @classmethod
-    def value_is_filter(cls,col,val,key_name):
+    def value_is_filter(cls,col,val,key_name,*args,**kw):
         result = model.Key.by_name(key_name) 
         int_table = result.numeric
         key_id = result.id
@@ -872,7 +946,7 @@ class Key(SystemObject):
                  return and_(model.Key_Value_String.key_value == val,model.Key_Value_String.key_id == key_id) 
 
     @classmethod
-    def value_is_not_filter(cls,col,val,key_name):
+    def value_is_not_filter(cls,col,val,key_name,*args,**kw):
         result = model.Key.by_name(key_name)
         int_table = result.numeric
         key_id = result.id
@@ -922,7 +996,7 @@ class Cpu(SystemObject):
                          }  
 
     @classmethod
-    def flags_is_not_filter(cls,col,val,**kw):
+    def flags_is_not_filter(cls,col,val,*args,**kw):
         """
         flags_is_not_filter is a function dynamically called from append_results.
         It serves to provide a table column operation specific method of filtering results of CPU/Flags
@@ -942,7 +1016,7 @@ class Device(SystemObject):
                           'Driver' : DeviceColumn(col_type='string', column=model.Device.driver)  } 
       
     @classmethod
-    def driver_is_not_filter(cls,col,val):
+    def driver_is_not_filter(cls,col,val,*args,**kw):
         if not val:
             return or_(col != None, col != val)
         else:

@@ -42,6 +42,7 @@ from bkr.server.jobs import Jobs
 from bkr.server.recipes import Recipes
 from bkr.server.tasks import Tasks
 from bkr.server.task_actions import TaskActions
+from bkr.server.unhandled_exception import ErrorCatcher
 from cherrypy import request, response
 from cherrypy.lib.cptools import serve_file
 from tg_expanding_form_widget.tg_expanding_form_widget import ExpandingForm
@@ -72,6 +73,31 @@ class Utility:
     #I this I will move this Utility class out into another module and then
     #perhaps break it down into further classes. Work from other tickets
     #is making it quite large.
+    @classmethod
+    def create_search_bar(cls,custom_columns=None,extra_selects=[],table_search_controllers={},*args,**kw):
+        predefined = {
+                        search_utility.System : {'all':[]},
+                        search_utility.Cpu : {'all':[]},
+                        search_utility.Device:{'all':[]},
+                        search_utility.Key:{'all':[]}
+                      }
+        if custom_columns is not None:
+            for i,h in custom_columns.iteritems():
+                if i in predefined:
+                    predefined[i] = h
+        if not extra_selects:
+            extra_selects =    [ { 'name': 'keyvalue', 'column':'key/value','display':'none' , 'pos' : 2,'callback':url('/get_operators_keyvalue') }]
+        if not table_search_controllers:
+            table_search_controllers = {'key/value':url('/get_keyvalue_search_options')}
+
+        search_bar = SearchBar(name='systemsearch',
+                           label=_(u'System Search'), 
+                           enable_custom_columns = True,
+                           extra_selects = extra_selects,
+                           table=search_utility.System.search.create_search_table(predefined),
+                           search_controller=url("/get_search_options"),
+                           table_search_controllers = table_search_controllers)
+        return search_bar
 
     @classmethod
     def direct_column(cls,title,getter):
@@ -89,8 +115,8 @@ class Utility:
       result_columns() will return the list of columns that are able to bereturned
       in the system search results.
       """
-      column_names = search_utility.System.search.create_column_table([{search_utility.Cpu :{'exclude': ['Flags']} },
-                                                                       {search_utility.System: {'all':[]} }] ) 
+      column_names = search_utility.System.search.create_column_table({search_utility.Cpu :{'exclude': ['Flags']} ,
+                                                                      search_utility.System: {'all':[]} } ) 
       
       send = [(elem,elem) for elem in column_names]  
      
@@ -411,16 +437,6 @@ class Root(RPCRoot):
         action = 'save_data',
         submit_text = _(u'Change'),
     )  
-    search_bar = SearchBar(name='systemsearch',
-                           label=_(u'System Search'), 
-                           enable_custom_columns = True,
-                           extra_selects = [ { 'name': 'keyvalue', 'column':'key/value','display':'none' , 'pos' : 2,'callback':url('/get_operators_keyvalue') }], 
-                           table=search_utility.System.search.create_search_table([{search_utility.System:{'all':[]}},
-										   {search_utility.Cpu:{'all':[]}},
-                                                                                   {search_utility.Device:{'all':[]}},
-                                                                                   {search_utility.Key:{'all':[]}} ] ),
-                           search_controller=url("/get_search_options"),
-                           table_search_controllers = {'key/value':url('/get_keyvalue_search_options')},)
                  
   
     system_form = SystemForm()
@@ -582,10 +598,10 @@ class Root(RPCRoot):
 
     @expose(template='bkr.server.templates.grid_add')
     @paginate('list',default_order='fqdn',limit=20,allow_limit_override=True)
-    def index(self, *args, **kw):   
-        return_dict =  self.systems(systems = System.all(identity.current.user), *args, **kw) 
+    def index(self, *args, **kw):      
+        return_dict =  self.systems(systems = System.all(identity.current.user),custom_columns={search_utility.System : {'exclude' : ['ReservedVia']} },*args, **kw)
         return return_dict
-
+        
     @expose(template='bkr.server.templates.form')
     @identity.require(identity.not_anonymous())
     def prefs(self, *args, **kw):
@@ -613,19 +629,19 @@ class Root(RPCRoot):
     @identity.require(identity.not_anonymous())
     @paginate('list',default_order='fqdn',limit=20,allow_limit_override=True)
     def available(self, *args, **kw):
-        return self.systems(systems = System.available(identity.current.user), *args, **kw)
+        return self.systems(systems = System.available(identity.current.user), custom_columns={search_utility.System : {'exclude' : ['ReservedVia']} },*args, **kw)
 
     @expose(template='bkr.server.templates.grid')
     @identity.require(identity.not_anonymous())
     @paginate('list',default_order='fqdn',limit=20,allow_limit_override=True)
     def free(self, *args, **kw):
-        return self.systems(systems = System.free(identity.current.user), *args, **kw)
+        return self.systems(systems = System.free(identity.current.user),custom_columns={search_utility.System : {'exclude' : ['ReservedVia']} },*args, **kw)
 
     @expose(template='bkr.server.templates.grid')
     @identity.require(identity.not_anonymous())
     @paginate('list',limit=20,allow_limit_override=True)
     def mine(self, *args, **kw):
-        return self.systems(systems = System.mine(identity.current.user), *args, **kw)
+        return self.systems(systems = System.mine(identity.current.user),custom_columns={search_utility.System : {'exclude' : ['User']} },*args, **kw)
     
     @expose(allow_json=True) 
     def find_systems_for_distro(self,distro_install_name,*args,**kw): 
@@ -722,7 +738,7 @@ class Root(RPCRoot):
             return_dict.update({'searchvalue':searchvalue})
         return return_dict
  
-    def systems(self, systems, *args, **kw):
+    def systems(self, systems,custom_columns=None, *args, **kw):
         if 'simplesearch' in kw:
             simplesearch = kw['simplesearch']
             kw['systemsearch'] = [{'table' : 'System/Name',   
@@ -794,7 +810,9 @@ class Root(RPCRoot):
                 my_fields.insert(index - 1, col)
                 
         display_grid = myPaginateDataGrid(fields=my_fields)
-        col_data = Utility.result_columns(columns)   
+        col_data = Utility.result_columns(columns)  
+
+        search_bar = Utility.create_search_bar(custom_columns=custom_columns)
              
         return dict(title="Systems", grid = display_grid,
                                      list = systems, 
@@ -802,9 +820,9 @@ class Root(RPCRoot):
                                      options =  {'simplesearch' : simplesearch,'columns':col_data,
                                                  'result_columns' : default_result_columns,
                                                  'col_defaults' : col_data['default'],
-                                                 'col_options' : col_data['options']},
+                                                 'col_options' : col_data['options']}, 
                                      action = '.', 
-                                     search_bar = self.search_bar )
+                                     search_bar = search_bar )
                                                                         
 
     @expose(format='json')

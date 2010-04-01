@@ -319,9 +319,9 @@ class Jobs(RPCRoot):
     @expose(template='bkr.server.templates.grid')
     @paginate('list',default_order='-id', limit=50)
     def mine(self,*args,**kw): 
-        return self.jobs(jobs=Job.mine(identity.current.user),action='./mine',*args,**kw)
+        return self.jobs(jobs=Job.mine(identity.current.user),minus_searchables='Owner',*args,**kw)
  
-    def jobs(self,jobs,action='.', *args, **kw): 
+    def jobs(self,jobs,action='.',minus_searchables=None, *args, **kw): 
         jobs_return = self._jobs(jobs,**kw) 
         searchvalue = None
         search_options = {}
@@ -345,7 +345,7 @@ class Jobs(RPCRoot):
 
         search_bar = SearchBar(name='jobsearch',
                            label=_(u'Job Search'),    
-                           table = search_utility.Job.search.create_search_table(without=('Owner')),
+                           table = search_utility.Job.search.create_search_table(without=minus_searchables),
                            search_controller=url("/get_search_options_job"), 
                            )
         return dict(title="Jobs", grid=jobs_grid, list=jobs, search_bar=search_bar, action=action, options=search_options, searchvalue=searchvalue)

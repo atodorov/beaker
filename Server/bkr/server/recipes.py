@@ -167,7 +167,7 @@ class Recipes(RPCRoot):
     @expose(template='bkr.server.templates.grid')
     @paginate('list',default_order='-id', limit=50)
     def mine(self,*args,**kw):
-        return self.recipes(recipes=MachineRecipe.mine(identity.current.user),action='./mine',*args,**kw)
+        return self.recipes(recipes=MachineRecipe.mine(identity.current.user),*args,**kw)
 
     def recipes(self,recipes,action='.',*args, **kw): 
         recipes_return = self._recipes(recipes,**kw)
