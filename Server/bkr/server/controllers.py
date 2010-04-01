@@ -42,7 +42,6 @@ from bkr.server.jobs import Jobs
 from bkr.server.recipes import Recipes
 from bkr.server.tasks import Tasks
 from bkr.server.task_actions import TaskActions
-from bkr.server.unhandled_exception import ErrorCatcher
 from cherrypy import request, response
 from cherrypy.lib.cptools import serve_file
 from tg_expanding_form_widget.tg_expanding_form_widget import ExpandingForm
