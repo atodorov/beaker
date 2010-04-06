@@ -89,11 +89,12 @@ class Utility:
         if not table_search_controllers:
             table_search_controllers = {'key/value':url('/get_keyvalue_search_options')}
 
+        tables = search_utility.System.search.create_search_table(predefined) 
         search_bar = SearchBar(name='systemsearch',
                            label=_(u'System Search'), 
                            enable_custom_columns = True,
                            extra_selects = extra_selects,
-                           table=search_utility.System.search.create_search_table(predefined),
+                           table=tables,
                            search_controller=url("/get_search_options"),
                            table_search_controllers = table_search_controllers)
         return search_bar
@@ -436,7 +437,10 @@ class Root(RPCRoot):
         action = 'save_data',
         submit_text = _(u'Change'),
     )  
-                 
+    
+    #We have to create this mapping here in Root so that any following system searches
+    #will have access to the populated class_external_mapping var. 
+    search_utility.System.search.create_mapping()                 
   
     system_form = SystemForm()
     power_form = PowerForm(name='power')
@@ -737,7 +741,8 @@ class Root(RPCRoot):
             return_dict.update({'searchvalue':searchvalue})
         return return_dict
  
-    def systems(self, systems,custom_columns=None, *args, **kw):
+    def systems(self, systems,custom_columns=None, *args, **kw): 
+        search_bar = Utility.create_search_bar(custom_columns=custom_columns)
         if 'simplesearch' in kw:
             simplesearch = kw['simplesearch']
             kw['systemsearch'] = [{'table' : 'System/Name',   
@@ -778,7 +783,7 @@ class Root(RPCRoot):
                     columns.append(elem)
 
             use_custom_columns = False
-            for column in columns:
+            for column in columns: 
                 table,col = column.split('/')
                 if sys_search.translate_name(table) is not search_utility.System:
                     use_custom_columns = True     
@@ -809,10 +814,7 @@ class Root(RPCRoot):
                 my_fields.insert(index - 1, col)
                 
         display_grid = myPaginateDataGrid(fields=my_fields)
-        col_data = Utility.result_columns(columns)  
-
-        search_bar = Utility.create_search_bar(custom_columns=custom_columns)
-             
+        col_data = Utility.result_columns(columns)
         return dict(title="Systems", grid = display_grid,
                                      list = systems, 
                                      searchvalue = searchvalue,                                    

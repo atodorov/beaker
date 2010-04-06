@@ -224,7 +224,7 @@ class Modeller(object):
         return
 
         
-class Search:
+class Search: 
     def append_results(self,value,column,operation,**kw): 
         pre = self.pre_operations(column,operation,value,**kw)
         cls_name = re.sub('Search','',self.__class__.__name__)
@@ -375,33 +375,33 @@ class Search:
 
 
 class RecipeSearch(Search):
-    search_table = []
+   
     def __init__(self,recipe):
         self.queri = recipe
 
 class JobSearch(Search):
-    search_table = []
+  
     def __init__(self,job):
         self.queri = job
 
 class TaskSearch(Search):
-    search_table = []
+ 
     def __init__(self,task):
         self.queri = task
 
 class ActivitySearch(Search):
-    search_table = [] 
+
     def __init__(self,activity):
         self.queri = activity
     
 class HistorySearch(Search):
-    search_table = []   
+
     def __init__(self,activity):
         self.queri = activity 
    
 class SystemSearch(Search): 
     class_external_mapping = {}
-    search_table = []
+
     column_table = [] 
     def __init__(self,systems=None):
         if systems:
@@ -539,26 +539,24 @@ class SystemSearch(Search):
 
     @classmethod
     def create_column_table(cls,options): 
-        return cls._create_table(options,cls.column_table)        
+        return cls._create_table(options)        
 
     @classmethod
     def create_search_table(cls,options): 
-        return cls._create_table(options,cls.search_table) 
+        return cls._create_table(options) 
    
     @classmethod
-    def _create_table(cls,options,lookup_table):  
+    def _create_table(cls,options):  
         """
         create_table will set and return the class' attribute with
         a list of searchable 'combinations'.
         These 'combinations' merely represent a table and a column.
         An example of a table entry may be 'CPU/Vendor' or 'System/Name'
         """
-        #Clear the table if it's already been created
-        if lookup_table != None:
-           lookup_table = []       
+        lookup_table = [] 
        
         for obj,v in options.iteritems():
-            display_name = cls.create_mapping(obj)
+            display_name = cls._create_mapping(obj)
             for rule,v1 in v.iteritems():  
                 searchable = obj.get_searchable()
                 if rule == 'all':
@@ -576,17 +574,21 @@ class SystemSearch(Search):
         lookup_table.sort()
         return lookup_table
 
-        for obj in searchable_objs: 
+    @classmethod
+    def create_mapping(cls,objs=None):
+        if objs is None:
+            #These are the classs that system search bar will search, these can be added to
+            objs = (System, Cpu, Device, Key)
+        [cls._create_mapping(obj) for obj in objs]
 
-            display_name = cls.create_mapping(obj)
-            #Now let's actually build the search table
-            searchable =  obj.get_searchable() 
-            
-            for item in searchable:    
-                 cls.search_table.append('%s/%s' % (display_name,item))  
 
     @classmethod
-    def create_mapping(cls,obj):
+    def _create_mapping(cls,obj):
+        """
+        Any time the system search bar has to deal search, it needs to know what class
+        it's looking at i.e CPU/Processors, has to be able to link to the Cpu class. This
+        is where we create that mapping
+        """
         display_name = getattr(obj,'display_name',None)
         if display_name != None:
             display_name = obj.display_name
@@ -643,8 +645,7 @@ class SystemSearch(Search):
             field_type = 'generic'
 
         return Key.search_operators(field_type,loose_match=True)
-        
-             
+                     
     @classmethod 
     def search_on(cls,class_field): 
         """
@@ -711,8 +712,7 @@ class SystemObject:
             return searchable_columns
         
         except ValueError,e:
-            log.error('Cannot remove column %s from searchable column in class %s as it is not a searchable column in the first place.'\
-                      'Returning standard searchable_columns' % (current_col,cls.__name__)) 
+            log.error('Returning standard searchable_columns for cls' % cls.__name__) 
             return searchable_columns
         except AttributeError,(e):
             log.debug('Unable to access searchable_columns of class %s' % cls.__name__)
@@ -732,8 +732,7 @@ class SystemObject:
             log.error('Failed to find search_type by index %s, got error: %s' % (index_type,e))
             
 class System(SystemObject): 
-    search = SystemSearch
-    search_table = []
+    search = SystemSearch 
     searchable_columns = {'Vendor'    : MyColumn(column=model.System.vendor,col_type='string'),
                           'Name'      : MyColumn(column=model.System.fqdn,col_type='string'),
                           'Lender'    : MyColumn(column=model.System.lender,col_type='string'),
