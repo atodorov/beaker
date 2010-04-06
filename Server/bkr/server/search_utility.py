@@ -350,7 +350,7 @@ class Search:
         """ 
         translate_name() get's a reference to the class from it's display name 
         """
-        try: 
+        try:
             class_ref = cls.class_external_mapping[display_name]
         except KeyError:
             log.error('Class %s does not have a mapping to display_name %s' % (cls.__name__,display_name))
@@ -468,7 +468,9 @@ class SystemSearch(Search):
             filter_func = modeller.return_function(col_type,operation,loose_match=True)   
             filter_final = lambda: filter_func(mycolumn.column,value)
 
-        self.queri = self.queri.filter(filter_final()) 
+        self.queri = self.queri.filter(filter_final())
+        log.debug(self.queri)      
+
 
     def __do_join(self,cls_ref,col_name=None,mycolumn=None,results_from_pre=None,id=None): 
             if not mycolumn and not col_name:
@@ -604,7 +606,6 @@ class SystemSearch(Search):
         if cls.class_external_mapping.has_key(display_name) and cls.class_external_mapping.get(display_name) is not obj: 
             log.error("Display name %s cannot be set for %s" % (display_name,obj.__name__))               
         else: 
-            log.debug('Doing mapping')
             cls.class_external_mapping[display_name] = obj
         return display_name
 
