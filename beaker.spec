@@ -6,8 +6,8 @@
 %endif
 
 Name:           beaker
-Version:        0.4.93
-Release:        3%{?timestamp}%{?branch}%{?dist}
+Version:        0.4.94
+Release:        0%{?timestamp}%{?branch}%{?dist}
 Summary:        Filesystem layout for Beaker
 Group:          Applications/Internet
 License:        GPLv2+
@@ -146,6 +146,8 @@ ln -s Fedora.ks $RPM_BUILD_ROOT/var/lib/cobbler/kickstarts/Fedoradevelopment.ks
 /usr/share/man/man1/beakerlib*
 
 %changelog
+* Mon Apr 12 2010 Bill Peck <bpeck@redhat.com> - 0.4.94-0
+- Add system specific snippets support
 * Fri Apr 09 2010 Bill Peck <bpeck@redhat.com> - 0.4.93-3
 - Support for getting additional distro repos from RCM xmlrpc interface added
 * Tue Apr 06 2010 Bill Peck <bpeck@redhat.com> - 0.4.92-0
