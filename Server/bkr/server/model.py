@@ -3607,12 +3607,28 @@ class RecipeTask(TaskBase):
             task.appendChild(results)
         return task
 
+    TIMEDELTA0 = timedelta(0)
+
     def _get_duration(self):
         duration = None
         if self.finish_time and self.start_time:
             duration =  self.finish_time - self.start_time
         elif self.watchdog and self.watchdog.kill_time:
-            duration =  'Time Remaining %.7s' % (self.watchdog.kill_time - datetime.utcnow())
+            ## CASE $(BILL, CHOSE ONE) IN:
+            ## THIS REQUIRE TIMEDELTA0 OR UGLY remaining.days >= 0:
+            #remaining = self.watchdog.kill_time - datetime.utcnow()
+            #if remaining >= self.TIMEDELTA0: # remaining.days >= 0:
+            #    fmt = 'Time Remaining %s'
+            #else:
+            #    fmt = 'Overdue %s'
+            #duration =  fmt % abs(remaining)
+            ## I WOULD PREFER FOLLOWING (LET THE CLIENT DO THE FORMATTING)
+            #duration = 'Time Remaining %s' % self.status_watchdog()
+            ## OR EVEN FOLLOWING (WE HAVE THE STATUS):
+            duration = str(self.status_watchdog())
+            ## ESAC
+            ## NOTE: Actually the formatting is harmfull - causing scripts
+            ## headache to interpret the string... 
         return duration
     duration = property(_get_duration)
 
