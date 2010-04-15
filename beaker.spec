@@ -6,7 +6,7 @@
 %endif
 
 Name:           beaker
-Version:        0.4.94
+Version:        0.4.95
 Release:        0%{?timestamp}%{?branch}%{?dist}
 Summary:        Filesystem layout for Beaker
 Group:          Applications/Internet
@@ -146,6 +146,8 @@ ln -s Fedora.ks $RPM_BUILD_ROOT/var/lib/cobbler/kickstarts/Fedoradevelopment.ks
 /usr/share/man/man1/beakerlib*
 
 %changelog
+* Thu Apr 15 2010 Bill Peck <bpeck@redhat.com> - 0.4.95-0
+- added /tmp/X.log to anamon code.
 * Mon Apr 12 2010 Bill Peck <bpeck@redhat.com> - 0.4.94-0
 - Add system specific snippets support
 * Fri Apr 09 2010 Bill Peck <bpeck@redhat.com> - 0.4.93-3
