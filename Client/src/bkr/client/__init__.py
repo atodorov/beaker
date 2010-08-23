@@ -1,29 +1,20 @@
 # -*- coding: utf-8 -*-
 
-import os
 import xml.dom.minidom
 import sys
 import copy
 import re
 from kobo.client import ClientCommand
 
+
+CONF = 'BEAKER_CLIENT_CONF'
+
+
 class BeakerCommand(ClientCommand):
     enabled = False
-    conf_environ_key = 'BEAKER_CLIENT_CONF'
+    # Following is for kobo-0.2 compatibility only:
+    conf_environ_key = CONF
 
-    if not os.environ.has_key(conf_environ_key):
-        user_conf = os.path.expanduser('~/.beaker_client/config')
-        old_conf = os.path.expanduser('~/.beaker')
-        if os.path.exists(user_conf):
-            conf = user_conf
-        elif os.path.exists(old_conf):
-            sys.stderr.write("%s is deprecated for config, please use %s instead\n" % (old_conf, 
-                                                                                         user_conf))
-            conf = old_conf
-        else:
-            conf = "/etc/beaker/client.conf"
-            sys.stderr.write("%s not found, using %s\n" % (user_conf, conf))
-        os.environ[conf_environ_key] = conf
 
 class BeakerWorkflow(BeakerCommand):
     doc = xml.dom.minidom.Document()
