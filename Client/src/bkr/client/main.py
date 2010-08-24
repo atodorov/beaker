@@ -29,6 +29,9 @@ except ImportError:
     # kobo 0.2
     from kobo.cli import CommandContainer
 
+    import warnings
+    warnings.warn("Support for kobo-0.2 will be removed. Upgrade please.", DeprecationWarning)
+
     # can not use subclass due to bug in kobo-0.2: super(cls, cls) is causing
     # infinite recursion when register_module is used with subclass:
     def BeakerCommandContainer(conf_file=None, **kwargs):
