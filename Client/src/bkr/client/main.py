@@ -24,7 +24,7 @@ try:
 
     CommandContainerClass = BeakerCommandContainer
 
-except:
+except ImportError:
 
     # kobo 0.2
     from kobo.cli import CommandContainer
