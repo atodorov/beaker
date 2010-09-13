@@ -442,6 +442,17 @@ recipe_set_nacked_table = Table('recipe_set_nacked', metadata,
     Column('created',DateTime,nullable=False,default=datetime.utcnow)
 )
 
+beaker_tag_table = Table('beaker_tag', metadata,
+    Column('id', Integer, primary_key=True, nullable = False),
+    Column('tag', Unicode(20), primary_key=True, nullable = False),
+    Column('type', Unicode(40), nullable=False)
+)
+
+retention_tag_table = Table('retention_tag', metadata,
+    Column('id', Integer, ForeignKey('beaker_tag.id', onupdate='CASCADE', ondelete='CASCADE'),nullable=False, primary_key=True),
+    Column('default_', Boolean, unique=True)
+)
+
 response_table = Table('response', metadata,
     Column('id', Integer, autoincrement=True, primary_key=True, nullable=False),
     Column('response',Unicode(50), nullable=False)
@@ -564,11 +575,12 @@ job_table = Table('job',metadata,
 
 recipe_set_table = Table('recipe_set',metadata,
         Column('id', Integer, primary_key=True),
-        Column('job_id',Integer,
+        Column('job_id', Integer,
                 ForeignKey('job.id')),
         Column('priority_id', Integer,
                 ForeignKey('task_priority.id'), default=select([task_priority_table.c.id], limit=1).where(task_priority_table.c.priority==u'Normal').correlate(None)),
         Column('queue_time',DateTime, nullable=False, default=datetime.utcnow),
+        Column('retention_tag_id', Integer, ForeignKey('retention_tag.id', ondelete="CASCADE", onupdate="CASCADE"), nullable=False), 
         Column('result_id', Integer,
                 ForeignKey('task_result.id')),
         Column('status_id', Integer,
@@ -3380,6 +3392,57 @@ class Job(TaskBase):
         except:
             return
 
+class BeakerTag(object):
+
+    def __init__(self, tag, *args, **kw):
+        self.tag = tag
+
+    @classmethod
+    def by_id(cls, id, *args, **kw):
+        return cls.query().filter(cls.id==id).one()
+
+    @classmethod
+    def by_tag(cls, tag, *args, **kw):
+        return cls.query().filter(cls.tag==tag).one()
+
+    @classmethod
+    def get_all(cls, *args, **kw):
+        return cls.query()
+
+class RetentionTag(BeakerTag):
+
+    def __init__(self, is_default, tag, *args, **kw):
+        self.set_default_val(is_default)
+        super(RetentionTag, self).__init__(tag, *args, **kw)
+        session.flush()
+
+    def get_default_val(self):
+        return self.is_default
+    
+    def set_default_val(self, is_default):
+        if is_default:
+            try:
+                current_default = self.get_default()
+                current_default.is_default = False
+            except InvalidRequestError, e: pass
+        self.is_default = is_default
+    default = property(get_default_val,set_default_val)
+        
+    @classmethod
+    def get_default(cls, *args, **kw):
+        return cls.query().filter(cls.is_default==True).one()
+
+    @classmethod
+    def list_by_tag(cls, tag, anywhere=True, *args, **kw):
+        if anywhere is True:
+            q = cls.query().filter(cls.tag.like('%%%s%%' % tag))
+        else:
+            q = cls.query().filter(cls.tag.like('%s%%' % tag))
+        return q
+        
+    def __repr__(self, *args, **kw):
+        return self.tag
+
 class Response(MappedObject):
 
     @classmethod
@@ -3432,7 +3495,6 @@ class RecipeSet(TaskBase):
     """
 
     stop_types = ['abort','cancel']
-
     def is_owner(self,user):
         if self.job.owner == user:
             return True
@@ -3441,6 +3503,7 @@ class RecipeSet(TaskBase):
     def to_xml(self, clone=False, from_job=True):
         recipeSet = self.doc.createElement("recipeSet")
         return_node = recipeSet
+        recipeSet.setAttribute('retention_tag', "%s"  % self.retention_tag) 
         if not clone:
             recipeSet.setAttribute("id", "%s" % self.id)
 
@@ -5117,6 +5180,13 @@ mapper(Permission, permissions_table,
         properties=dict(groups=relation(Group,
                 secondary=group_permission_table, backref='permissions')))
 
+mapper(BeakerTag, beaker_tag_table,
+        polymorphic_on=beaker_tag_table.c.type, polymorphic_identity='tag')
+
+mapper(RetentionTag, retention_tag_table, inherits=BeakerTag, 
+        properties=dict(is_default=retention_tag_table.c.default_),
+        polymorphic_identity='retention_tag')
+
 mapper(Activity, activity_table,
         polymorphic_on=activity_table.c.type, polymorphic_identity='activity',
         properties=dict(user=relation(User, uselist=False,
@@ -5204,6 +5274,7 @@ mapper(RecipeSet, recipe_set_table,
                       'priority':relation(TaskPriority, uselist=False),
                       'result':relation(TaskResult, uselist=False),
                       'status':relation(TaskStatus, uselist=False),
+                      'retention_tag':relation(RetentionTag, uselist=False,backref='recipeset'),
                       'activity':relation(RecipeSetActivity,
                                      order_by=[activity_table.c.created.desc()],
                                                backref='object'),

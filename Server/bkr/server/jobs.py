@@ -189,40 +189,58 @@ class Jobs(RPCRoot):
         )
 
 
+    def _handle_recipe_set(self, xmlrecipeSet, *args, **kw):
+        """
+        Handles the processing of recipesets into DB entries from their xml
+        """
+        recipeSet = RecipeSet(ttasks=0)
+        recipeset_priority = xmlrecipeSet.get_xml_attr('priority',unicode,None)
+        if recipeset_priority is not None:
+            try:
+                my_priority = TaskPriority.query().filter_by(priority = recipeset_priority).one()
+            except InvalidRequestError, (e):
+                raise BX(_('You have specified an invalid recipeSet priority:%s' % recipeset_priority))
+            allowed_priorities = RecipeSet.allowed_priorities_initial(identity.current.user)
+            allowed = [elem for elem in allowed_priorities if elem.priority == recipeset_priority]
+            if allowed:
+                recipeSet.priority = allowed[0]
+            else:
+                recipeSet.priority = TaskPriority.default_priority() 
+        else:
+            recipeSet.priority = TaskPriority.default_priority() 
+        
+        recipeset_retention = xmlrecipeSet.get_xml_attr('retention_tag',unicode,None) 
+        if recipeset_retention is None: #Set default value
+            tag = RetentionTag.get_default()
+        else:
+            try:
+                tag = RetentionTag.by_tag(recipeset_retention.lower())
+            except InvalidRequestError:
+                raise BX(_("Invalid retention_days attribute passed. Needs to be one of %s. You gave: %s" % (','.join([x.tag for x in RetentionTag.get_all()]), recipeset_retention)))
+        recipeSet.retention_tag = tag
+        
+        for xmlrecipe in xmlrecipeSet.iter_recipes(): 
+            recipe = self.handleRecipe(xmlrecipe)
+            recipe.ttasks = len(recipe.tasks)
+            recipeSet.ttasks += recipe.ttasks
+            recipeSet.recipes.append(recipe)
+            # We want the guests to be part of the same recipeSet
+            for guest in recipe.guests:
+                recipeSet.recipes.append(guest)
+                guest.ttasks = len(guest.tasks)
+                recipeSet.ttasks += guest.ttasks
+        if not recipeSet.recipes:
+            raise BX(_('No Recipes! You can not have a recipeSet with no recipes!'))
+        return recipeSet
+
     def process_xmljob(self, xmljob, user):
         job = Job(whiteboard='%s' % xmljob.whiteboard, ttasks=0,
                   owner=user)
         for xmlrecipeSet in xmljob.iter_recipeSets():
-            recipeSet = RecipeSet(ttasks=0)
-            recipeset_priority = xmlrecipeSet.get_xml_attr('priority',str,None)
-            if recipeset_priority is not None:
-                try:
-                    my_priority = TaskPriority.query().filter_by(priority = recipeset_priority).one()
-                except InvalidRequestError, (e):
-                    raise BX(_('You have specified an invalid recipeSet priority:%s' % recipeset_priority))
-                allowed_priorities = RecipeSet.allowed_priorities_initial(identity.current.user)
-                allowed = [elem for elem in allowed_priorities if elem.priority == recipeset_priority]
-                if allowed:
-                    recipeSet.priority = allowed[0]
-                else:
-                    recipeSet.priority = TaskPriority.default_priority() 
-            else:
-                recipeSet.priority = TaskPriority.default_priority() 
+            recipe_set = self._handle_recipe_set(xmlrecipeSet)
+            job.recipesets.append(recipe_set)
+            job.ttasks += recipe_set.ttasks
 
-            for xmlrecipe in xmlrecipeSet.iter_recipes(): 
-                recipe = self.handleRecipe(xmlrecipe)
-                recipe.ttasks = len(recipe.tasks)
-                recipeSet.ttasks += recipe.ttasks
-                recipeSet.recipes.append(recipe)
-                # We want the guests to be part of the same recipeSet
-                for guest in recipe.guests:
-                    recipeSet.recipes.append(guest)
-                    guest.ttasks = len(guest.tasks)
-                    recipeSet.ttasks += guest.ttasks
-            if not recipeSet.recipes:
-                raise BX(_('No Recipes! You can not have a recipeSet with no recipes!'))
-            job.recipesets.append(recipeSet)    
-            job.ttasks += recipeSet.ttasks
         if not job.recipesets:
             raise BX(_('No RecipeSets! You can not have a Job with no recipeSets!'))
         return job
