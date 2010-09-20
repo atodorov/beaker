@@ -13,6 +13,14 @@ from sqlalchemy.orm import relation, backref, synonym, dynamic_loader,query
 from sqlalchemy.sql import exists
 from sqlalchemy.sql.expression import join
 from sqlalchemy.exceptions import InvalidRequestError
+
+# Make compatible with sqlalchemy 0.4, 0.5 and newer has NoResultFound
+try:
+    from sqlalchemy.orm.exc import NoResultFound
+except ImportError:
+    class NoResultFound(InvalidRequestError):
+        """A database result was required but none was found."""
+
 from identity import LdapSqlAlchemyIdentityProvider
 from cobbler_utils import consolidate, string_to_hash
 from sqlalchemy.orm.collections import attribute_mapped_collection, MappedCollection, collection
@@ -1032,12 +1040,14 @@ class MappedObject(object):
     @classmethod
     def lazy_create(cls, **kwargs):
         item = None
+        # Make compatible with sqlalchemy 0.4, 0.5 and newer has NoResultFound
         try:
-            item = cls.query.filter_by(**kwargs).one()
-        except InvalidRequestError, e:
-            if '%s' % e == 'Multiple rows returned for one()':
-                log.error('Mutlitple rows returned for %s' % kwargs)
-            elif '%s' % e == 'No rows returned for one()':
+            try:
+                item = cls.query.filter_by(**kwargs).one()
+            except InvalidRequestError, e:
+                if e.args[0] == 'No rows returned for one()':
+                    raise NoResultFound("No row was found for one()")
+        except NoResultFound:
                 item = cls(**kwargs)
                 session.save(item)
                 session.flush([item])
