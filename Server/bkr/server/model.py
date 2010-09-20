@@ -1047,6 +1047,8 @@ class MappedObject(object):
             except InvalidRequestError, e:
                 if e.args[0] == 'No rows returned for one()':
                     raise NoResultFound("No row was found for one()")
+                else:
+                    raise
         except NoResultFound:
                 item = cls(**kwargs)
                 session.save(item)
