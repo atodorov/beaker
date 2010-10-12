@@ -132,6 +132,12 @@ def create_job(owner=None, distro=None, task_name=u'/distribution/reservesys'):
     recipe_set = RecipeSet(ttasks=1, priority=TaskPriority.default_priority())
     recipe = MachineRecipe(ttasks=1, distro=distro or Distro.query()[0])
     recipe.append_tasks(RecipeTask(task=create_task(name=task_name)))
+    recipe._distro_requires = u'<distroRequires><and><distro_arch value="i386"  \
+        op="="></distro_arch><distro_variant value="Workstation" op="="> \
+        </distro_variant><distro_family value="RedHatEnterpriseLinux6" op="="> \
+        </distro_family><distro_name value="RHEL6.0-20100428.3" op="="> \
+        </distro_name></and><distro_virt value="" op="="></distro_virt> \
+        </distroRequires>'
     recipe_set.recipes.append(recipe)
     job.recipesets.append(recipe_set)
     log.debug('Created %s', job.t_id)
