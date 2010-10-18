@@ -160,9 +160,11 @@ class LabControllers(RPCRoot):
                     try:
                         lc_osminor = lc_os_version.split('.')[1]
                     except:
-                        # Last ditch attempt to get os_minor from distro name
-                        # when install name uses 'Ux'
-                        m = re.search('^.+?U(\d{1,})(?:.+|.?)$',u'%s' % distro.name)
+                        """ 
+                        Last ditch attempt to get os_minor from distro name
+                        Match last instance of Ux
+                        """
+                        m = re.search('^.+U(\d{1,}).*$',u'%s' % distro.name)
                         if m is not None:
                             try:
                                 lc_osminor = m.group(1)
