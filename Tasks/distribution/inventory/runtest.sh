@@ -18,6 +18,7 @@
 modprobe kvm
 modprobe kvm_amd
 modprobe kvm_intel
+modprobe ib_ipoib 
 
 hostname=$HOSTNAME
 if [ -z "$LAB_SERVER" ]; then
