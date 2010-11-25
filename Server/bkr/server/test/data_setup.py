@@ -109,7 +109,7 @@ def create_distro(name=u'DAN6-Server-U9', breed=u'Dan',
         distro.osversion = OSVersion.by_name(osmajor, osminor)
     except sqlalchemy.exceptions.InvalidRequestError:
         distro.osversion = OSVersion(osmajor, osminor, arches=[])
-    distro.arch = Arch.by_name(arch)
+    distro.arch  = Arch.by_name(arch)
     # make it available in all lab controllers
     for lc in LabController.query():
         distro.lab_controller_assocs.append(LabControllerDistro(lab_controller=lc))
