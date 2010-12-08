@@ -2,8 +2,10 @@
 %{!?pyver: %global pyver %(%{__python} -c "import sys ; print sys.version[:3]")}
 
 Name:           beaker
-Version:        0.5.63
-Release:        5%{?dist}
+# hacked version for external-scheduler-integration branch:
+# do not merge this change onto develop!
+Version:        0.5.999_esi
+Release:        1%{?dist}
 Summary:        Filesystem layout for Beaker
 Group:          Applications/Internet
 License:        GPLv2+
@@ -14,6 +16,7 @@ BuildArch:      noarch
 BuildRequires:  python-setuptools
 BuildRequires:  python-setuptools-devel
 BuildRequires:  python2-devel
+BuildRequires:  python-sphinx10
 
 
 %package client
@@ -36,6 +39,7 @@ Requires:       python-decorator
 Requires:       python-xmltramp
 Requires:       python-lxml
 Requires:       python-ldap
+Requires:       python-rdflib >= 3.0.0
 Requires:       mod_wsgi
 Requires:       python-tgexpandingformwidget
 Requires:       httpd
@@ -43,6 +47,7 @@ Requires:       python-krbV
 Requires:	%{name} = %{version}-%{release}
 Requires:       python-TurboMail >= 3.0
 Requires:	createrepo
+Requires:	yum-utils
 
 
 %package lab-controller
@@ -103,6 +108,7 @@ ln -s Fedora.ks $RPM_BUILD_ROOT/%{_var}/lib/cobbler/kickstarts/Fedoradevelopment
 %post lab-controller
 /sbin/chkconfig --add beaker-proxy
 /sbin/chkconfig --add beaker-watchdog
+/sbin/chkconfig --add beaker-transfer
 
 %postun server
 if [ "$1" -ge "1" ]; then
@@ -113,6 +119,7 @@ fi
 if [ "$1" -ge "1" ]; then
         /sbin/service beaker-proxy condrestart >/dev/null 2>&1 || :
         /sbin/service beaker-watchdog condrestart >/dev/null 2>&1 || :
+        /sbin/service beaker-transfer condrestart >/dev/null 2>&1 || :
 fi
 
 %preun server
@@ -125,8 +132,10 @@ fi
 if [ "$1" -eq "0" ]; then
         /sbin/service beaker-proxy stop >/dev/null 2>&1 || :
         /sbin/service beaker-watchdog stop >/dev/null 2>&1 || :
+        /sbin/service beaker-transfer stop >/dev/null 2>&1 || :
         /sbin/chkconfig --del beaker-proxy || :
         /sbin/chkconfig --del beaker-watchdog || :
+        /sbin/chkconfig --del beaker-transfer || :
 fi
 
 %files
@@ -150,6 +159,7 @@ fi
 %{_bindir}/%{name}-init
 %{_bindir}/nag-mail
 %{_bindir}/product-update
+%{_bindir}/beaker-repo-update
 %{_bindir}/%{name}-cleanup-visits
 %{_sysconfdir}/init.d/%{name}d
 %config(noreplace) %{_sysconfdir}/cron.d/%{name}
@@ -179,6 +189,7 @@ fi
 %{python_sitelib}/bkr.labcontroller-%{version}-py%{pyver}.egg-info/
 %{_bindir}/%{name}-proxy
 %{_bindir}/%{name}-watchdog
+%{_bindir}/%{name}-transfer
 %doc LabController/README
 %config(noreplace) %{_sysconfdir}/httpd/conf.d/%{name}-lab-controller.conf
 %{_sysconfdir}/cron.daily/expire_distros
@@ -189,6 +200,7 @@ fi
 %attr(-,apache,root) %dir %{_localstatedir}/log/%{name}
 %{_sysconfdir}/init.d/%{name}-proxy
 %{_sysconfdir}/init.d/%{name}-watchdog
+%{_sysconfdir}/init.d/%{name}-transfer
 %attr(-,apache,root) %dir %{_localstatedir}/run/%{name}-lab-controller
 
 %changelog

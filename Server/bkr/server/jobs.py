@@ -272,6 +272,8 @@ class Jobs(RPCRoot):
                 if not confirmed:
                     job_schema = lxml.etree.RelaxNG(self.job_schema_doc)
                     if not job_schema.validate(lxml.etree.fromstring(textxml)):
+                        log.debug('Job failed validation, with errors: %r',
+                                job_schema.error_log)
                         return dict(
                             title = title,
                             form = self.job_form,
@@ -606,7 +608,7 @@ class Jobs(RPCRoot):
             redirect(".")
         job.cancel(msg)
         flash(_(u"Successfully cancelled job %s" % id))
-        redirect(".")
+        redirect('/jobs/mine')
 
     @identity.require(identity.not_anonymous())
     @expose(template="bkr.server.templates.form")
