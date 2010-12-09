@@ -4937,7 +4937,7 @@ class RecipeTask(TaskBase):
                 recipe.id, self.id)
     filepath = property(filepath)
 
-    def to_xml(self, clone=False):
+    def to_xml(self, clone=False, *args, **kw):
         task = self.doc.createElement("task")
         task.setAttribute("name", "%s" % self.task.name)
         task.setAttribute("role", "%s" % self.role and self.role or 'STANDALONE')
