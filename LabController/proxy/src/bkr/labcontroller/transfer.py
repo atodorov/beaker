@@ -3,7 +3,7 @@ import os
 import sys
 import signal
 import logging
-from datetime import datetime, timedelta
+import time
 from optparse import OptionParser
 
 from bkr.labcontroller.proxy import Watchdog
@@ -52,14 +52,16 @@ def main_loop(conf=None, foreground=False):
     if foreground:
         add_stderr_logger(transfer.logger)
 
-    now = datetime.now()
+    transfer.hub._transport.timeout = 300
+    time_of_last_check = 0
     while True:
         try:
+            now = time.time()
             # Poll the scheduler for watchdogs
             transfer.hub._login()
-            if datetime.now() > now:
-                # Look for logs to transfer
-                now = datetime.now() + timedelta(minutes=30)
+            # Look for logs to transfer every 30 minutes
+            if now - time_of_last_check > 1800:
+                time_of_last_check = now
                 transfer.transfer_logs()
 
             # write to stdout / stderr
