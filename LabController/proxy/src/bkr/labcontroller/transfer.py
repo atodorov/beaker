@@ -57,12 +57,14 @@ def main_loop(conf=None, foreground=False):
     while True:
         try:
             now = time.time()
-            # Poll the scheduler for watchdogs
-            transfer.hub._login()
             # Look for logs to transfer every 30 minutes
             if now - time_of_last_check > 1800:
                 time_of_last_check = now
+                transfer.hub._login()
                 transfer.transfer_logs()
+            else:
+                transfer.logger.debug(80 * '-')
+                transfer.sleep()
 
             # write to stdout / stderr
             sys.stdout.flush()

@@ -58,9 +58,9 @@ def main_loop(conf=None, foreground=False):
         try:
             now = time.time()
             # Poll the scheduler for watchdogs
-            watchdog.hub._login()
             if now - time_of_last_check > 60:
                 time_of_last_check = now
+                watchdog.hub._login()
                 watchdog.expire_watchdogs()
                 watchdog.active_watchdogs()
             if not watchdog.run():
