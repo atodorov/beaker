@@ -3405,13 +3405,20 @@ class LogRecipeTaskResult(Log):
 
 class TaskBase(MappedObject):
 
+    finished = []
+    queued = []
+    failed = []
+
     def is_finished(self):
         """
         Simply state if the task is finished or not
         """
-        if self.status in [TaskStatus.by_name(u'Completed'),
-                           TaskStatus.by_name(u'Cancelled'),
-                           TaskStatus.by_name(u'Aborted')]:
+        if not self.finished:
+            self.finished = [TaskStatus.by_name(u'Completed'),
+                             TaskStatus.by_name(u'Cancelled'),
+                             TaskStatus.by_name(u'Aborted')]
+
+        if self.status in self.finished:
             return True
         else:
             return False
@@ -3420,10 +3427,13 @@ class TaskBase(MappedObject):
         """
         State if the task is queued
         """ 
-        if self.status in [TaskStatus.by_name(u'New'),
+        if not self.queued:
+            self.queued = [TaskStatus.by_name(u'New'),
                            TaskStatus.by_name(u'Processed'),
                            TaskStatus.by_name(u'Queued'),
-                           TaskStatus.by_name(u'Scheduled')]:
+                           TaskStatus.by_name(u'Scheduled')]
+
+        if self.status in queued:
             return True
         else:
             return False 
@@ -3435,9 +3445,12 @@ class TaskBase(MappedObject):
         """ 
         Return True if the task has failed
         """
-        if self.result in [TaskResult.by_name(u'Warn'),
+        if not self.failed:
+            self.failed = [TaskResult.by_name(u'Warn'),
                            TaskResult.by_name(u'Fail'),
-                           TaskResult.by_name(u'Panic')]:
+                           TaskResult.by_name(u'Panic')]
+
+        if self.result in self.failed:
             return True
         else:
             return False
