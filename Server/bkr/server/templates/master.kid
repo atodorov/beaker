@@ -41,6 +41,7 @@ from bkr.server.reports import Reports
             </li>
             <li>Systems
                 <ul id="systems">
+                    <li><a href="${tg.url('/new/'}">New System</a></li>
                     <li>
                         <img class="corner_inset_left" alt="" src="${tg.url('/static/images/corner_inset_left.png')}"/>
                         <a href="${tg.url('/')}">All</a>
