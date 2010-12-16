@@ -4,6 +4,7 @@ import sys
 import signal
 import logging
 import time
+import socket
 from optparse import OptionParser
 
 from bkr.labcontroller.proxy import Watchdog
@@ -52,7 +53,7 @@ def main_loop(conf=None, foreground=False):
     if foreground:
         add_stderr_logger(watchdog.logger)
 
-    watchdog.hub._transport.timeout = 300 
+    watchdog.hub._transport.timeout = 120 
     time_of_last_check = 0
     while True:
         try:
@@ -75,7 +76,7 @@ def main_loop(conf=None, foreground=False):
             sys.stdout.flush()
             sys.stderr.flush()
 
-        except socket.timeout:
+        except socket.sslerror:
             pass # try again later
         except (ShutdownException, KeyboardInterrupt):
             # ignore keyboard interrupts and sigterm

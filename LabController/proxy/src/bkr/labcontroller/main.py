@@ -8,6 +8,7 @@ from threading import Thread
 
 import SocketServer
 import DocXMLRPCServer
+import socket
 
 from bkr.labcontroller.proxy import Proxy
 
@@ -22,7 +23,7 @@ class Authenticate(Thread):
     def __init__ (self,proxy):
       Thread.__init__(self)
       self.proxy = proxy
-      self.proxy.hub._transport.timeout = 300
+      self.proxy.hub._transport.timeout = 120
       self.__serving = False
 
     def run(self):
@@ -37,7 +38,7 @@ class Authenticate(Thread):
                     self.proxy.hub._login(verbose=self.proxy.hub._conf.get("DEBUG_XMLRPC"))
                 except KeyboardInterrupt:
                     raise
-                except socket.timeout:
+                except socket.sslerror:
                     pass  #try again later 
                 except Exception, e:
                     raise
