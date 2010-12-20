@@ -3433,7 +3433,7 @@ class TaskBase(MappedObject):
                            TaskStatus.by_name(u'Queued'),
                            TaskStatus.by_name(u'Scheduled')]
 
-        if self.status in queued:
+        if self.status in self.queued:
             return True
         else:
             return False 
