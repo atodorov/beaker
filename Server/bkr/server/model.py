@@ -1067,7 +1067,7 @@ class Permission(object):
         return isinstance(other,self.__class__) and self.id != other.id
 
     @classmethod
-    @cache
+    @sqla_cache
     def by_name(cls, permission_name):
         return cls.query.filter(cls.permission_name == permission_name).one()
 
@@ -1200,7 +1200,7 @@ class Group(object):
         return isinstance(other,self.__class__) and self.id != other.id
 
     @classmethod
-    @cache
+    @sqla_cache
     def by_name(cls, name):
         return cls.query.filter_by(group_name=name).one()
 
@@ -2389,7 +2389,7 @@ class SystemType(SystemObject):
         return [type.type for type in all_types]
 
     @classmethod
-    @cache
+    @sqla_cache
     def by_name(cls, systemtype):
         return cls.query.filter_by(type=systemtype).one()
 
@@ -2469,7 +2469,7 @@ class SystemStatus(SystemObject):
 
 
     @classmethod
-    @cache
+    @sqla_cache
     def by_name(cls, systemstatus):
         return cls.query.filter_by(status=systemstatus).one()
  
@@ -3306,7 +3306,7 @@ class TaskStatus(object):
         return cls.query().order_by(TaskStatus.severity.desc()).first()
 
     @classmethod
-    @cache
+    @sqla_cache
     def by_name(cls, status_name):
         return cls.query().filter_by(status=status_name).one()
 
@@ -3335,7 +3335,7 @@ class TaskStatus(object):
 
 class TaskResult(object):
     @classmethod
-    @cache
+    @sqla_cache
     def by_name(cls, result_name):
         return cls.query().filter_by(result=result_name).one()
 
@@ -3813,7 +3813,7 @@ class Product(object):
         return cls.query().filter(cls.id == id).one()
 
     @classmethod
-    @cache
+    @sqla_cache
     def by_name(cls, name):
         return cls.query().filter(cls.name == name).one()
 
@@ -4647,6 +4647,7 @@ class Recipe(TaskBase):
                 min_status = task.status
             if task.result > max_result:
                 max_result = task.result
+       
         self.status = min_status
         self.result = max_result
 
@@ -5503,7 +5504,7 @@ class Task(MappedObject):
         return isinstance(other,self.__class__) and self.id != other.id
 
     @classmethod
-    @cache
+    @sqla_cache
     def by_name(cls, name):
         return cls.query.filter_by(name=name).one()
 
@@ -5617,7 +5618,7 @@ class TaskType(MappedObject):
         return isinstance(other,self.__class__) and self.id != other.id
 
     @classmethod
-    @cache
+    @sqla_cache
     def by_name(cls, type):
         return cls.query.filter_by(type=type).one()
 
@@ -5633,7 +5634,7 @@ class TaskPackage(MappedObject):
         return isinstance(other,self.__class__) and self.id != other.id
 
     @classmethod
-    @cache
+    @sqla_cache
     def by_name(cls, package):
         return cls.query.filter_by(package=package).one()
 
