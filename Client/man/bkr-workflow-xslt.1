@@ -1,4 +1,4 @@
-.TH "bkr workflow-xslt" "8" "" "David Sommerseth" "Beaker"
+.TH "bkr workflow-xslt" "1" "" "David Sommerseth" "Beaker"
 .SH "NAME"
 bkr workflow\-xslt \- XSLT based Beaker job generator
 .SH "SYNOPSIS"
@@ -148,7 +148,7 @@ The <name/&gt defines the short and long option names.  The
 .B short
 attribute is mandatory and can only be one character.  If the same argument name is defined several times, the last defined argument will override all other conflicting arguments.
 .TP
-.B <tag type="{attribute|value}" [attrname="{Attribute name}"]/>
+.B <tag type="{attribute|value|list}" [attrname="{Attribute name}"] [element_tag="{list element tag name}"/>
 This tag defines which XML tag name the internal XML tag the option value will be stored under.  The
 .B type
 attribute is mandatory and can be either
@@ -167,7 +167,11 @@ the option value from the command line will be placed as an attribute value to t
 .B attribute
 the
 .B attrname
-attribute is mandatory.  This attribute defines the attribute name to be used in the internal XML.
+attribute is mandatory.  This attribute defines the attribute name to be used in the internal XML.  If the type
+.B list
+is used, it will create a list of XML tags based on the value string.  The default value for the children of the tag name is 'value', unless
+.B element_tag
+is set.  The value string will be split into separate tokens using comma (,) as the separator.
 .TP
 .B <default/>
 This tag is optional.  It will set a default value if this option is not used on the command line.
@@ -210,22 +214,23 @@ Save the contents below as
          <tag type="attribute" attrname="group">name</tag>
          <description>Group identifier</description>
        </arg>
+       <arg section="recipe" type="string" optional="1">
+        <name>phone-numbers</name>
+        <metavar>PHONE\-NUMBERS</metavar>
+        <tag type="list" element_tag="number">phones</tag>
+        <description>List of phone numbers, comma separated</description>
+       </arg>
      </arguments>
    </jobConfig>
 .LP
 Save this dummy XSLT file as
 .B example.xsl
-   <?xml version="1.0"?>
-   <xsl:stylesheet version="1.0"
-           xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
-      <xsl:output method="xml" version="1.0"
-              encoding="UTF\-8" indent="yes"/>
-   </xsl:stylesheet>
+   -
 .LP
 Run from a terminal the following command:
    $ bkr workflow\-xslt \-\-dry\-run \-\-job-xml example\-job.xml \\
          \-\-save\-internal\-xml example.xml \\
-         \-i 99 \-n "Example" \-g "Group1"
+         \-i 99 \-n "Example" \-g "Group1" \-\-phone\-numbers 123,456,789
 .br
    \-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
 .br
@@ -245,7 +250,12 @@ Run from a terminal the following command:
    <submit>
       <whiteboard/>
       <recipe>
-         <name group="Group1" version="99">Example</name>
+        <phones>
+           <number>123</number>
+           <number>456</number>
+           <number>789</number>
+        </phones>
+        <name group="Group1" version="99">Example</name>
       </recipe>
    </submit>
    $
